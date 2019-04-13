@@ -1027,7 +1027,15 @@ class Fil_shard {
   @param[in]	space		Tablespace for which we want to
                                   wait for IO to stop */
   static void wait_for_io_to_stop(const fil_space_t *space);
-
+  /** Get the file name for IO and the local offset within that file.
+  @param[in]	req_type	IO context
+  @param[in,out]	space		Tablespace for IO
+  @param[in,out]	page_no		The relative page number in the file
+  @param[out]	file		File node
+  @return DB_SUCCESS or error code */
+  static dberr_t get_file_for_io(const IORequest &req_type, fil_space_t *space,
+                                 page_no_t *page_no, fil_node_t *&file)
+      MY_ATTRIBUTE((warn_unused_result));
  private:
   /** We keep log files and system tablespace files always open; this is
   important in preventing deadlocks in this module, as a page read
@@ -1091,15 +1099,8 @@ class Fil_shard {
   static AIO_mode get_AIO_mode(const IORequest &req_type, bool sync)
       MY_ATTRIBUTE((warn_unused_result));
 
-  /** Get the file name for IO and the local offset within that file.
-  @param[in]	req_type	IO context
-  @param[in,out]	space		Tablespace for IO
-  @param[in,out]	page_no		The relative page number in the file
-  @param[out]	file		File node
-  @return DB_SUCCESS or error code */
-  static dberr_t get_file_for_io(const IORequest &req_type, fil_space_t *space,
-                                 page_no_t *page_no, fil_node_t *&file)
-      MY_ATTRIBUTE((warn_unused_result));
+
+
 
  private:
   /** Fil_shard ID */
@@ -7133,7 +7134,7 @@ dberr_t Fil_shard::get_file_for_io(const IORequest &req_type,
         f.size > *page_no) {
       /* We do not know the size of a single-table tablespace
       before we open the file */
-
+      
       file = &f;
 
       return (DB_SUCCESS);
@@ -7630,6 +7631,21 @@ dberr_t fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
 
   return (shard->do_io(type, sync, page_id, page_size, byte_offset, len, buf,
                        message));
+}
+fil_space_t *get_space(space_id_t space_id) {
+  auto shard = fil_system->shard_by_id(space_id);
+  fil_space_t *space;
+  shard->mutex_acquire_and_get_space(space_id,space);
+  shard->mutex_release();
+  return space;
+}
+fil_node_t *get_file(const IORequest &req_type, fil_space_t *space, page_no_t page_no, space_id_t space_id) {
+  fil_node_t *file;
+  auto shard = fil_system->shard_by_id(space_id);
+  //shard->mutex_acquire();
+  shard->get_file_for_io(req_type, space, &page_no, file);
+  //shard->mutex_release();
+  return file;                  
 }
 
 /** If the tablespace is on the unflushed list and there are no pending

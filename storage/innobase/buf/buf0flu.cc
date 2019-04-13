@@ -35,6 +35,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <mysql/service_thd_wait.h>
 #include <sys/types.h>
 #include <time.h>
+#include <fcntl.h>
+#include <iostream>
+#include <fstream>
 
 #ifndef UNIV_HOTBACKUP
 #include "buf0buf.h"
@@ -1195,6 +1198,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
     ut_a(err == DB_SUCCESS);
 
   } else if (flush_type == BUF_FLUSH_SINGLE_PAGE) {
+    std::cout<<"single"<<std::endl;
     buf_dblwr_write_single_page(bpage, sync);
   } else {
     ut_ad(!sync);
@@ -1206,7 +1210,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
   are working on. */
   if (sync) {
     ut_ad(flush_type == BUF_FLUSH_SINGLE_PAGE);
-    fil_flush(bpage->id.space());
+    //fil_flush(bpage->id.space());
 
     /* true means we want to evict this page from the
     LRU list as well. */
@@ -1351,10 +1355,63 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     point, it is safe to access bpage, because it is io_fixed and
     oldest_modification != 0.  Thus, it cannot be relocated in the
     buffer pool or removed from flush_list or LRU_list. */
+    page_no_t page_no = bpage->id.page_no();
+    space_id_t space_id = bpage->id.space();
 
     buf_flush_write_block_low(bpage, flush_type, sync);
-  }
+    ulint type = IORequest::UNSET | IORequest::READ;
 
+    IORequest request(type);
+    IORequest req_type(request);
+    fil_node_t *file;
+    fil_space_t *space;
+    space = get_space(space_id);
+    file = get_file(req_type, space, page_no, space_id);
+    buf_page_cache_t *head = buf_pool->buf_page_cache_head;
+    buf_page_cache_t *s;
+    s = new buf_page_cache_t;
+    s->file = file->handle.m_file;
+    s->len = bpage->size.physical();
+    os_offset_t offset = (os_offset_t)page_no * bpage->size.physical();
+    s->offset = offset;
+    s->lsn = bpage->newest_modification;
+    s->buf_page_cache=buf_pool->buf_page_cache_head;
+    buf_pool->buf_page_cache_head = s;
+
+    buf_page_cache_t *p1, *p2;
+    if (head == nullptr) {
+      buf_pool->buf_page_cache_head = new buf_page_cache_t;
+      buf_pool->buf_page_cache = buf_pool->buf_page_cache_head;
+      s->buf_page_cache = nullptr;
+      buf_pool->buf_page_cache->buf_page_cache = s;
+      buf_pool->buf_page_cache = s;
+      buf_pool->buf_page_cache_head = buf_pool->buf_page_cache_head->buf_page_cache;
+      buf_pool->buf_page_cache->buf_page_cache = nullptr;
+    }
+    else {
+      p1 = buf_pool->buf_page_cache_head;
+      if (s->lsn <= p1->lsn) {
+        s->buf_page_cache = p1;
+        buf_pool->buf_page_cache_head = s;
+       
+        return (flush);
+      }
+      p2 = p1;
+      while (p1->buf_page_cache != nullptr) {
+        p1 = p1->buf_page_cache;
+        if(s->lsn<=p1->lsn) {
+          s->buf_page_cache = p1;
+          p2->buf_page_cache = s;
+          
+          return (flush);
+        }
+        p2 = p2->buf_page_cache;
+      }
+      p1->buf_page_cache = s;
+    }
+  }
+  
+  
   return (flush);
 }
 
@@ -2142,7 +2199,7 @@ bool buf_flush_single_page_from_LRU(buf_pool_t *buf_pool) {
   ulint scanned;
   buf_page_t *bpage;
   ibool freed;
-
+  std::cout<<"flushsingle"<<std::endl;
   mutex_enter(&buf_pool->LRU_list_mutex);
 
   for (bpage = buf_pool->single_scan_itr.start(), scanned = 0, freed = false;
@@ -2178,7 +2235,6 @@ bool buf_flush_single_page_from_LRU(buf_pool_t *buf_pool) {
 
       Note: There is no guarantee that this page has actually
       been freed, only that it has been flushed to disk */
-
       freed = buf_flush_page(buf_pool, bpage, BUF_FLUSH_SINGLE_PAGE, true);
 
       if (freed) {

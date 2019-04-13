@@ -49,6 +49,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #include <zlib.h>
 #include "btr0btr.h"
@@ -1809,7 +1810,66 @@ static lsn_t srv_prepare_to_delete_redo_log_files(ulint n_files) {
 
       ib::info(ER_IB_MSG_1216) << info.str();
     }
-
+    for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+      buf_pool_t *buf_pool;
+      buf_pool = buf_pool_from_array(i);
+      buf_page_cache_t *p, *p1;
+      p = buf_pool->buf_page_cache_head;
+      lsn_t lsn = p->lsn;
+      p1 = p;
+      std::cout<<"presync"<<std::endl;
+      if (p!=nullptr) {
+        std::cout<<"sync"<<std::endl;
+        while (true) {
+          /*if (lsn >= flushed_lsn) {
+            break;
+          }
+          else {
+            if(p!=buf_pool->buf_page_cache_head) {
+              p1 = p1->buf_page_cache;
+            }
+            p = p->buf_page_cache;
+            lsn = p->lsn;
+          }*/
+          if (p->lsn >= flushed_lsn) {
+            error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+            std::cout<<"err"<<std::endl;
+            std::cout<<err<<std::endl;
+            ut_a (!err);
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1->buf_page_cache = p->buf_page_cache;
+            }
+            else {
+              buf_pool->buf_page_cache_head = p->buf_page_cache;
+              p = buf_pool->buf_page_cache_head;
+            }
+          }
+          else {
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1=p1->buf_page_cache;
+              p=p->buf_page_cache;
+            }
+            else {
+              p = p->buf_page_cache;
+            }
+          }
+        }
+        /*now we need to flush all the pages following p.*/
+        /*while (true) {
+          error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+          std::cout<<"err"<<std::endl;
+          std::cout<<err<<std::endl;
+          ut_a (!err);
+          if (p->buf_page_cache == nullptr) {
+            break;
+          }
+          else {
+            p = p->buf_page_cache;
+          }
+        }
+        p1->buf_page_cache=nullptr;*/
+      }
+	  } 
     /* Flush the old log files. */
     log_write_up_to(*log_sys, flushed_lsn, true);
 
@@ -1846,7 +1906,6 @@ static lsn_t srv_prepare_to_delete_redo_log_files(ulint n_files) {
 @return DB_SUCCESS or error code */
 dberr_t srv_start(bool create_new_db, const std::string &scan_directories) {
   lsn_t flushed_lsn;
-
   /* just for assertions */
   lsn_t previous_lsn;
 
@@ -2365,8 +2424,72 @@ files_checked:
 
     previous_lsn = log_get_lsn(*log_sys);
 
+
+
     buf_flush_sync_all_buf_pools();
 
+
+
+    for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+      buf_pool_t *buf_pool;
+      buf_pool = buf_pool_from_array(i);
+      buf_page_cache_t *p, *p1;
+      p = buf_pool->buf_page_cache_head;
+      lsn_t lsn = p->lsn;
+      p1 = p;
+      std::cout<<"presync"<<std::endl;
+      if (p!=nullptr) {
+        std::cout<<"sync"<<std::endl;
+        while (true) {
+          /*if (lsn >= flushed_lsn) {
+            break;
+          }
+          else {
+            if(p!=buf_pool->buf_page_cache_head) {
+              p1 = p1->buf_page_cache;
+            }
+            p = p->buf_page_cache;
+            lsn = p->lsn;
+          }*/
+          if (p->lsn >= flushed_lsn) {
+            error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+            std::cout<<"err"<<std::endl;
+            std::cout<<err<<std::endl;
+            ut_a (!err);
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1->buf_page_cache = p->buf_page_cache;
+            }
+            else {
+              buf_pool->buf_page_cache_head = p->buf_page_cache;
+              p = buf_pool->buf_page_cache_head;
+            }
+          }
+          else {
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1=p1->buf_page_cache;
+              p=p->buf_page_cache;
+            }
+            else {
+              p = p->buf_page_cache;
+            }
+          }
+        }
+        /*now we need to flush all the pages following p.*/
+        /*while (true) {
+          error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+          std::cout<<"err"<<std::endl;
+          std::cout<<err<<std::endl;
+          ut_a (!err);
+          if (p->buf_page_cache == nullptr) {
+            break;
+          }
+          else {
+            p = p->buf_page_cache;
+          }
+        }
+        p1->buf_page_cache=nullptr;*/
+      }
+	  } 
     log_stop_background_threads(*log_sys);
 
     flushed_lsn = log_get_lsn(*log_sys);

@@ -48,6 +48,7 @@ the file COPYING.Google.
 
 #ifndef UNIV_HOTBACKUP
 #include <debug_sync.h>
+#include <fcntl.h>
 #endif /* !UNIV_HOTBACKUP */
 
 #include "arch0arch.h"
@@ -633,18 +634,79 @@ static void log_wait_for_checkpoint(const log_t &log, lsn_t requested_lsn) {
   ut_wait_for(0, 100, stop_condition);
 }
 
-void log_request_checkpoint(log_t &log, bool sync, lsn_t lsn) {
-  log_preflush_pool_modified_pages(log, lsn);
+void log_request_checkpoint(log_t &log, bool sync, lsn_t flushed_lsn) {
+  log_preflush_pool_modified_pages(log, flushed_lsn);
+
+  for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+      buf_pool_t *buf_pool;
+      buf_pool = buf_pool_from_array(i);
+      buf_page_cache_t *p, *p1;
+      p = buf_pool->buf_page_cache_head;
+      lsn_t lsn = p->lsn;
+      p1 = p;
+      std::cout<<"presync"<<std::endl;
+      if (p!=nullptr) {
+        std::cout<<"sync"<<std::endl;
+        while (true) {
+          /*if (lsn >= flushed_lsn) {
+            break;
+          }
+          else {
+            if(p!=buf_pool->buf_page_cache_head) {
+              p1 = p1->buf_page_cache;
+            }
+            p = p->buf_page_cache;
+            lsn = p->lsn;
+          }*/
+          if (p->lsn >= flushed_lsn) {
+            error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+            std::cout<<"err"<<std::endl;
+            std::cout<<err<<std::endl;
+            ut_a (!err);
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1->buf_page_cache = p->buf_page_cache;
+            }
+            else {
+              buf_pool->buf_page_cache_head = p->buf_page_cache;
+              p = buf_pool->buf_page_cache_head;
+            }
+          }
+          else {
+            if (p!=buf_pool->buf_page_cache_head) {
+              p1=p1->buf_page_cache;
+              p=p->buf_page_cache;
+            }
+            else {
+              p = p->buf_page_cache;
+            }
+          }
+        }
+        /*now we need to flush all the pages following p.*/
+        while (true) {
+          error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
+          std::cout<<"err"<<std::endl;
+          std::cout<<err<<std::endl;
+          ut_a (!err);
+          if (p->buf_page_cache == nullptr) {
+            break;
+          }
+          else {
+            p = p->buf_page_cache;
+          }
+        }
+        p1->buf_page_cache=nullptr;
+      }
+	} 
 
   log_checkpointer_mutex_enter(log);
 
-  log_request_checkpoint_low(log, lsn);
+  log_request_checkpoint_low(log, flushed_lsn);
 
   log_checkpointer_mutex_exit(log);
 
-  if (sync) {
-    log_wait_for_checkpoint(log, lsn);
-  }
+  /*if (sync) {
+    log_wait_for_checkpoint(log, flushed_lsn);
+  }*/
 }
 
 void log_request_checkpoint(log_t &log, bool sync) {
@@ -658,9 +720,9 @@ void log_request_checkpoint(log_t &log, bool sync) {
 
   log_checkpointer_mutex_exit(log);
 
-  if (sync) {
+  /*if (sync) {
     log_wait_for_checkpoint(log, lsn);
-  }
+  }*/
 }
 
 bool log_make_latest_checkpoint(log_t &log) {
@@ -836,8 +898,8 @@ static bool log_should_checkpoint(log_t &log) {
   DBUG_EXECUTE_IF("periodical_checkpoint_disabled",
                   periodical_checkpoint_disabled = true;);
 
-  if ((log.periodical_checkpoints_enabled && !periodical_checkpoint_disabled &&
-       checkpoint_time_elapsed >= srv_log_checkpoint_every * 1000ULL) ||
+  if (/*(log.periodical_checkpoints_enabled && !periodical_checkpoint_disabled &&
+       checkpoint_time_elapsed >= srv_log_checkpoint_every * 1000ULL) ||*/
       checkpoint_age >= log.max_checkpoint_age_async ||
       (requested_checkpoint_lsn > last_checkpoint_lsn &&
        requested_checkpoint_lsn <= oldest_lsn)) {
