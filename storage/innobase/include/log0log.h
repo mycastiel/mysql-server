@@ -227,7 +227,7 @@ constexpr uint32_t LOG_FILE_HDR_SIZE = 4 * OS_FILE_LOG_BLOCK_SIZE;
 constexpr ulint INNODB_LOG_WRITE_MAX_SIZE_DEFAULT = 4096;
 
 /** Default value of innodb_log_checkpointer_every (in milliseconds). */
-constexpr ulong INNODB_LOG_CHECKPOINT_EVERY_DEFAULT = 1000;  // 1000ms = 1s
+constexpr ulong INNODB_LOG_CHECKPOINT_EVERY_DEFAULT = 10000000;  // 1000ms = 1s
 
 /** Default value of innodb_log_writer_spin_delay (in spin rounds).
 We measured that 1000 spin round takes 4us. We decided to select 1ms

@@ -1307,6 +1307,16 @@ class buf_page_t {
 #endif /* !UNIV_HOTBACKUP */
 };
 
+/**@struct, containing the information of the pages write to the page cache*/
+struct buf_page_cache_t {
+	lsn_t lsn;
+	os_offset_t offset;
+	uint len;
+	int file;
+  struct buf_page_cache_t *buf_page_cache;
+};
+
+
 /** The buffer control block structure */
 
 struct buf_block_t {
@@ -1702,6 +1712,11 @@ directory (buf) to see it. Do not use from outside! */
 struct buf_pool_t {
   /** @name General fields */
   /* @{ */
+
+
+  buf_page_cache_t *buf_page_cache;
+  buf_page_cache_t *buf_page_cache_head;
+
   BufListMutex chunks_mutex;    /*!< protects (de)allocation of chunks:
                                 - changes to chunks, n_chunks are performed
                                   while holding this latch,

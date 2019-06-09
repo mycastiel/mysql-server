@@ -1828,4 +1828,8 @@ and old name are same, no update done.
 @param[in]	name		new name for tablespace */
 void fil_space_update_name(fil_space_t *space, const char *name);
 
+
+fil_space_t *get_space(space_id_t space_id);
+fil_node_t *get_file(const IORequest &req_type, fil_space_t *space, page_no_t page_no, space_id_t space_id);
+
 #endif /* fil0fil_h */
