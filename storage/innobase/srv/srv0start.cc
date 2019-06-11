@@ -1820,7 +1820,7 @@ static lsn_t srv_prepare_to_delete_redo_log_files(ulint n_files) {
       std::cout<<"presync"<<std::endl;
       if (p!=nullptr) {
         std::cout<<"sync"<<std::endl;
-        while (true) {
+        while (p!=nullptr) {
           /*if (lsn >= flushed_lsn) {
             break;
           }
@@ -2440,7 +2440,7 @@ files_checked:
       std::cout<<"presync"<<std::endl;
       if (p!=nullptr) {
         std::cout<<"sync"<<std::endl;
-        while (true) {
+        while (p!=nullptr) {
           /*if (lsn >= flushed_lsn) {
             break;
           }
