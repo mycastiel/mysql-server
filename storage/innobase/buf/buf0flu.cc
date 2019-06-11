@@ -1408,13 +1408,8 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
         p2 = p2->buf_page_cache;
       }
       p1->buf_page_cache = s;
-<<<<<<< HEAD
     }*/
   }
-=======
-    }
-  }*/
->>>>>>> 7cc3894808594e24c285f94aa64ab9db6c973dc8
   
   
   return (flush);
