@@ -1375,7 +1375,9 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     os_offset_t offset = (os_offset_t)page_no * bpage->size.physical();
     s->offset = offset;
     s->lsn = bpage->newest_modification;
-    s->buf_page_cache=nullptr;
+    s->buf_page_cache=buf_pool->buf_page_cache_head;
+    buf_pool->buf_page_cache_head = s;
+
     buf_page_cache_t *p1, *p2;
     if (head == nullptr) {
       buf_pool->buf_page_cache_head = new buf_page_cache_t;
