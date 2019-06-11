@@ -648,7 +648,11 @@ void log_request_checkpoint(log_t &log, bool sync, lsn_t flushed_lsn) {
       if (p!=nullptr) {
         std::cout<<"sync"<<std::endl;
         while (true) {
+<<<<<<< HEAD
           /*if (lsn >= flushed_lsn) {
+=======
+          if (lsn >= flushed_lsn) {
+>>>>>>> d5c22cea2fb1e90d0a86935f89927f17b1d7e7aa
             break;
           }
           else {
@@ -657,6 +661,7 @@ void log_request_checkpoint(log_t &log, bool sync, lsn_t flushed_lsn) {
             }
             p = p->buf_page_cache;
             lsn = p->lsn;
+<<<<<<< HEAD
           }*/
           if (p->lsn >= flushed_lsn) {
             error_t err = sync_file_range(p->file, p->offset, p->len, SYNC_FILE_RANGE_WRITE);
@@ -679,6 +684,8 @@ void log_request_checkpoint(log_t &log, bool sync, lsn_t flushed_lsn) {
             else {
               p = p->buf_page_cache;
             }
+=======
+>>>>>>> d5c22cea2fb1e90d0a86935f89927f17b1d7e7aa
           }
         }
         /*now we need to flush all the pages following p.*/

@@ -1378,7 +1378,7 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     s->buf_page_cache=buf_pool->buf_page_cache_head;
     buf_pool->buf_page_cache_head = s;
 
-    buf_page_cache_t *p1, *p2;
+    /*buf_page_cache_t *p1, *p2;
     if (head == nullptr) {
       buf_pool->buf_page_cache_head = new buf_page_cache_t;
       buf_pool->buf_page_cache = buf_pool->buf_page_cache_head;
@@ -1409,7 +1409,7 @@ ibool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
       }
       p1->buf_page_cache = s;
     }
-  }
+  }*/
   
   
   return (flush);
