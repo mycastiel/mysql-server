@@ -669,6 +669,7 @@ void log_request_checkpoint(log_t &log, bool sync, lsn_t flushed_lsn) {
             else {
               buf_pool->buf_page_cache_head = p->buf_page_cache;
               p = buf_pool->buf_page_cache_head;
+              p1 = p;
             }
           }
           else {

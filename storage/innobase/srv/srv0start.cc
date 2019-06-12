@@ -1842,6 +1842,7 @@ static lsn_t srv_prepare_to_delete_redo_log_files(ulint n_files) {
             else {
               buf_pool->buf_page_cache_head = p->buf_page_cache;
               p = buf_pool->buf_page_cache_head;
+              p1 = p;
             }
           }
           else {
@@ -2462,6 +2463,7 @@ files_checked:
             else {
               buf_pool->buf_page_cache_head = p->buf_page_cache;
               p = buf_pool->buf_page_cache_head;
+              p1 = p;
             }
           }
           else {
